@@ -526,6 +526,24 @@
   }
   .form-error.show { display: block; }
 
+  .rsvp-success {
+    display: none;
+    margin-top: 24px;
+    border: 3px double var(--sage-dark);
+    background: rgba(147, 156, 119, 0.14);
+    padding: 22px 20px;
+    text-align: center;
+  }
+  .rsvp-success.show { display: block; }
+  .rsvp-success .stamp-word {
+    font-family: 'Special Elite', 'Courier New', monospace;
+    font-size: 1.05rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--sage-dark);
+  }
+  .rsvp-success p { margin: 8px 0 0; font-size: 0.98rem; }
+
   /* ---------- Footer ---------- */
   .footer-banner {
     margin: 34px -26px 0;
@@ -783,9 +801,13 @@
       </div>
 
       <button type="button" class="btn" id="sendBtn">Send RSVP</button>
-      <p class="form-hint">This opens your email app with your RSVP filled in &mdash; just press send!</p>
-      <button type="button" class="btn-ghost" id="copyBtn">No email app? Copy my RSVP instead</button>
+      <p class="form-hint">Your reply goes straight to the Patel family &mdash; you'll see a confirmation right here.</p>
+      <button type="button" class="btn-ghost" id="copyBtn">Trouble sending? Copy my RSVP instead</button>
       <p class="form-error" id="formError"></p>
+      <div class="rsvp-success" id="rsvpSuccess" role="status">
+        <span class="stamp-word">&#10003; RSVP Received</span>
+        <p id="successMsg"></p>
+      </div>
     </section>
 
     <div class="sign-off">
@@ -892,12 +914,57 @@
     return { name: name, body: lines.join('\n') };
   }
 
-  document.getElementById('sendBtn').addEventListener('click', function () {
-    var rsvp = buildRsvp();
-    if (!rsvp) return;
+  var sendBtn = document.getElementById('sendBtn');
+  var successBox = document.getElementById('rsvpSuccess');
+  var successMsg = document.getElementById('successMsg');
+
+  function mailtoFallback(rsvp) {
     var subject = 'RSVP: ' + rsvp.name + ' \u2014 Aarush\'s 1st Birthday';
     window.location.href = 'mailto:arjuptl@gmail.com?subject=' +
       encodeURIComponent(subject) + '&body=' + encodeURIComponent(rsvp.body);
+  }
+
+  sendBtn.addEventListener('click', function () {
+    var rsvp = buildRsvp();
+    if (!rsvp) return;
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending\u2026';
+
+    var payload = {
+      _subject: 'RSVP: ' + rsvp.name + ' \u2014 Aarush\'s 1st Birthday',
+      _template: 'table',
+      _captcha: 'false',
+      'Name': rsvp.name,
+      'Attending': attending ? 'YES' : 'No, sadly can\'t make it'
+    };
+    if (attending) {
+      var names = Array.prototype.map.call(guestNamesEl.querySelectorAll('input'), function (i) { return i.value.trim(); })
+        .filter(function (v) { return v; });
+      payload['Party of'] = String(guestCount);
+      payload['Guest names'] = names.length ? names.join(', ') : '(not filled in)';
+    }
+
+    fetch('https://formsubmit.co/ajax/arjuptl@gmail.com', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!(d && (d.success === true || d.success === 'true'))) throw new Error('rejected');
+      sendBtn.style.display = 'none';
+      document.getElementById('copyBtn').style.display = 'none';
+      document.querySelector('.form-hint').style.display = 'none';
+      successMsg.textContent = attending
+        ? 'Thank you, ' + rsvp.name + '! Your seats are booked \u2014 see you at the launch on August 15!'
+        : 'Thanks for letting us know, ' + rsvp.name + ' \u2014 we\'ll miss you!';
+      successBox.classList.add('show');
+      successBox.scrollIntoView({ block: 'nearest' });
+    }).catch(function () {
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send RSVP';
+      formError.textContent = 'Hmm, couldn\'t send from the page \u2014 opening your email app instead.';
+      formError.classList.add('show');
+      mailtoFallback(rsvp);
+    });
   });
 
   document.getElementById('copyBtn').addEventListener('click', function (e) {
