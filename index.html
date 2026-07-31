@@ -433,7 +433,7 @@
     margin-bottom: 7px;
   }
 
-  input[type="text"] {
+  input[type="text"], input[type="tel"], input[type="email"] {
     width: 100%;
     background: transparent;
     border: none;
@@ -443,8 +443,8 @@
     color: var(--ink);
     padding: 6px 2px;
   }
-  input[type="text"]::placeholder { color: rgba(107, 91, 68, 0.5); font-style: italic; }
-  input[type="text"]:focus-visible { outline: none; border-bottom-color: var(--navy); }
+  input[type="text"]::placeholder, input[type="tel"]::placeholder, input[type="email"]::placeholder { color: rgba(107, 91, 68, 0.5); font-style: italic; }
+  input[type="text"]:focus-visible, input[type="tel"]:focus-visible, input[type="email"]:focus-visible { outline: none; border-bottom-color: var(--navy); }
   .choice:focus-visible, .stepper button:focus-visible, .btn:focus-visible,
   .btn-ghost:focus-visible, a:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
 
@@ -807,6 +807,16 @@
         <input type="text" id="rsvpName" placeholder="e.g. Priya Shah" autocomplete="name">
       </div>
 
+      <div class="field">
+        <label for="rsvpPhone">Phone number</label>
+        <input type="tel" id="rsvpPhone" placeholder="e.g. (269) 555-0123" autocomplete="tel" inputmode="tel">
+      </div>
+
+      <div class="field">
+        <label for="rsvpEmail">Email</label>
+        <input type="email" id="rsvpEmail" placeholder="e.g. priya@example.com" autocomplete="email" inputmode="email">
+      </div>
+
       <div id="attendingFields" hidden>
         <div class="field">
           <span class="field-label" id="stepper-label">Number of travelers (including you)</span>
@@ -926,15 +936,19 @@
       nameInput.focus();
       return null;
     }
+    var phone = document.getElementById('rsvpPhone').value.trim();
+    var email = document.getElementById('rsvpEmail').value.trim();
     var lines = ['RSVP \u2014 Aarush\'s 1st Birthday (Aug 15)', '', 'From: ' + name,
                  'Attending: ' + (attending ? 'YES' : 'No, sadly can\'t make it')];
+    if (phone) lines.push('Phone: ' + phone);
+    if (email) lines.push('Email: ' + email);
     if (attending) {
       var names = Array.prototype.map.call(guestNamesEl.querySelectorAll('input'), function (i) { return i.value.trim(); })
         .filter(function (v) { return v; });
       lines.push('Party of: ' + guestCount);
       lines.push('Guest names: ' + (names.length ? names.join(', ') : '(not filled in)'));
     }
-    return { name: name, body: lines.join('\n') };
+    return { name: name, phone: phone, email: email, body: lines.join('\n') };
   }
 
   var sendBtn = document.getElementById('sendBtn');
@@ -960,6 +974,9 @@
       'Name': rsvp.name,
       'Attending': attending ? 'YES' : 'No, sadly can\'t make it'
     };
+    payload['Phone'] = rsvp.phone || '(not given)';
+    payload['Email'] = rsvp.email || '(not given)';
+    if (rsvp.email) payload['_replyto'] = rsvp.email;
     if (attending) {
       var names = Array.prototype.map.call(guestNamesEl.querySelectorAll('input'), function (i) { return i.value.trim(); })
         .filter(function (v) { return v; });
